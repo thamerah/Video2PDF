@@ -1,0 +1,7 @@
+streamlit
+yt-dlp
+opencv-python-headless
+imagehash
+img2pdf
+tqdm
+Pillow
