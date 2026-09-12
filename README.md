@@ -16,7 +16,7 @@ video2pdf/
   cli.py       # argparse CLI wrapper
 streamlit_app.py  # Streamlit web UI wrapper
 requirements.txt  # Python dependencies
-packages.txt      # apt dependency (ffmpeg) for Streamlit Community Cloud
+packages.txt      # apt dependency (ffmpeg)
 ```
 
 ## Setup
@@ -26,8 +26,7 @@ pip install -r requirements.txt
 ```
 
 `ffmpeg` must also be installed and on your `PATH` (yt-dlp uses it to merge
-separate video/audio streams). On Streamlit Community Cloud this is handled
-automatically via `packages.txt`.
+separate video/audio streams).
 
 ## CLI usage
 
@@ -64,20 +63,8 @@ streamlit run streamlit_app.py
 
 This opens a browser tab where you can paste a YouTube URL, adjust the
 "Slide Sensitivity Threshold" slider, click **Generate PDF**, and download the
-result once processing finishes.
-
-## Deploying to Streamlit Community Cloud
-
-1. Push this project to a GitHub repository (include `requirements.txt` and
-   `packages.txt` at the repo root).
-2. Go to [share.streamlit.io](https://share.streamlit.io) and create a new app
-   pointing at your repo, with `streamlit_app.py` as the main file.
-3. Streamlit Community Cloud installs `packages.txt` (which provides `ffmpeg`)
-   before installing `requirements.txt`, so no extra configuration is needed.
-4. If YouTube starts blocking downloads from the cloud IP range even with the
-   built-in client-spoofing, you can extend the app to accept an uploaded
-   `cookies.txt` file and pass its path through to `process_video(...,
-   cookies_path=...)`.
+result once processing finishes. An "Advanced" section lets you upload a
+`cookies.txt` file if YouTube blocks the download.
 
 ## How slide detection works
 
