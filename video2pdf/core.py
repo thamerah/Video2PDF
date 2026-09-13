@@ -33,6 +33,12 @@ from PIL import Image
 # (stage, message, percent) -> None. Stages: "downloading", "analyzing", "compiling", "done".
 ProgressCallback = Callable[[str, str, float], None]
 
+# Bundled FSRCNN 2x super-resolution model (~39KB), used to upscale saved
+# slides that are below save_width instead of just stretching pixels — see
+# _load_sr_model().
+_SR_MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "FSRCNN_x2.pb")
+_SR_SCALE = 2
+
 
 class Video2PDFError(Exception):
     """Base error for any Video2PDF processing failure."""
@@ -136,9 +142,37 @@ def _frame_to_hash(frame, downscale_width: int) -> imagehash.ImageHash:
     return imagehash.phash(Image.fromarray(rgb))
 
 
-def _save_slide(frame, path: str, save_width: int) -> None:
-    """Save a BGR frame to disk at up to `save_width` px wide, for PDF quality."""
+def _load_sr_model():
+    """Load the bundled FSRCNN super-resolution model, or None if unavailable.
+
+    Best-effort: dnn_superres requires the "contrib" OpenCV build, and the
+    model file might be missing in some environments. Either way, slides
+    should still be produced (just without the extra upscaling quality), not
+    crash the whole run.
+    """
+    if not os.path.isfile(_SR_MODEL_PATH):
+        return None
+    try:
+        sr = cv2.dnn_superres.DnnSuperResImpl_create()
+        sr.readModel(_SR_MODEL_PATH)
+        sr.setModel("fsrcnn", _SR_SCALE)
+        return sr
+    except Exception:
+        return None
+
+
+def _save_slide(frame, path: str, save_width: int, sr_model=None) -> None:
+    """Save a BGR frame to disk at up to `save_width` px wide, for PDF quality.
+
+    If the frame is narrower than save_width and a super-resolution model is
+    available, upscale with it first — this reconstructs plausible detail
+    (sharper text/edges) rather than just stretching pixels, which matters
+    most for slides whose source video tops out at a low resolution.
+    """
     h, w = frame.shape[:2]
+    if sr_model is not None and w < save_width:
+        frame = sr_model.upsample(frame)
+        h, w = frame.shape[:2]
     if w > save_width:
         scale = save_width / w
         frame = cv2.resize(frame, (save_width, max(1, int(h * scale))), interpolation=cv2.INTER_AREA)
@@ -165,6 +199,8 @@ def _extract_slides(
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise Video2PDFError(f"Could not open video file: {video_path}")
+
+    sr_model = _load_sr_model()
 
     try:
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
@@ -199,7 +235,7 @@ def _extract_slides(
                         last_hash = current_hash
                         slide_count += 1
                         slide_path = os.path.join(slides_dir, f"slide_{slide_count:04d}.jpg")
-                        _save_slide(frame, slide_path, save_width)
+                        _save_slide(frame, slide_path, save_width, sr_model)
                         slide_paths.append(slide_path)
 
                 if total_frames:

@@ -1,6 +1,6 @@
 streamlit
 yt-dlp
-opencv-python-headless
+opencv-contrib-python-headless
 imagehash
 img2pdf
 tqdm
