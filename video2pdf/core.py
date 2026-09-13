@@ -28,7 +28,7 @@ from urllib.parse import urlparse
 import cv2
 import img2pdf
 import imagehash
-from PIL import Image
+from PIL import Image, ImageFilter
 
 # (stage, message, percent) -> None. Stages: "downloading", "analyzing", "compiling", "done".
 ProgressCallback = Callable[[str, str, float], None]
@@ -142,8 +142,24 @@ def _save_slide(frame, path: str, save_width: int) -> None:
     if w > save_width:
         scale = save_width / w
         frame = cv2.resize(frame, (save_width, max(1, int(h * scale))), interpolation=cv2.INTER_AREA)
+
+    # Denoise before sharpening: low-bitrate H.264 sources have visible block/
+    # ringing artifacts, and sharpening those directly amplifies the noise
+    # along with real edges. A bilateral filter smooths flat regions while
+    # preserving genuine edges (text strokes, line art), giving the unsharp
+    # pass cleaner edges to work with.
+    frame = cv2.bilateralFilter(frame, d=5, sigmaColor=50, sigmaSpace=50)
+
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    Image.fromarray(rgb).save(path, "JPEG", quality=92)
+    image = Image.fromarray(rgb)
+    # Cheap perceptual sharpening: doesn't add real detail, but boosts edge
+    # contrast so text reads crisper — most noticeable on lower-resolution
+    # sources (e.g. when a video's max available quality is only 480p).
+    image = image.filter(ImageFilter.UnsharpMask(radius=2, percent=150, threshold=3))
+    # quality=95 + subsampling=0 (4:4:4, no chroma subsampling): default JPEG
+    # chroma subsampling halves color resolution, which visibly blurs colored
+    # text/annotations (common on lecture slides) even when luma is sharp.
+    image.save(path, "JPEG", quality=95, subsampling=0)
 
 
 def _extract_slides(
