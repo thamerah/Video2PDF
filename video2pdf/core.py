@@ -62,18 +62,20 @@ def _download_video(
     cookies_path: Optional[str],
     progress_callback: Optional[ProgressCallback],
 ) -> str:
-    """Download `url` into `dest_dir` at <=480p and return the local file path."""
+    """Download `url` into `dest_dir` at <=720p and return the local file path."""
     import yt_dlp  # imported lazily so the module loads even if yt-dlp isn't needed
 
     outtmpl = os.path.join(dest_dir, "source_video.%(ext)s")
     ydl_opts = {
-        # Cap resolution: plenty for slide detection, far cheaper to decode than 1080p/4K.
+        # Cap resolution: 720p keeps slide text legible after saving/upscaling to
+        # save_width, while still being far cheaper to decode than 1080p/4K. (480p
+        # was tried first but left saved slides visibly blurry once upscaled.)
         # Chained fallbacks: the ios/android clients (used below to dodge bot-detection)
         # expose a narrower format list than the default client, so a strict "must be
-        # <=480p and have separate video+audio" selector can come up empty for some
-        # videos. Fall back to any muxed <=480p stream, then to whatever's best overall,
+        # <=720p and have separate video+audio" selector can come up empty for some
+        # videos. Fall back to any muxed <=720p stream, then to whatever's best overall,
         # rather than failing outright.
-        "format": "bestvideo[height<=480]+bestaudio/best[height<=480]/best",
+        "format": "bestvideo[height<=720]+bestaudio/best[height<=720]/best",
         "outtmpl": outtmpl,
         "quiet": True,
         "no_warnings": True,
