@@ -68,7 +68,12 @@ def _download_video(
     outtmpl = os.path.join(dest_dir, "source_video.%(ext)s")
     ydl_opts = {
         # Cap resolution: plenty for slide detection, far cheaper to decode than 1080p/4K.
-        "format": "bestvideo[height<=480]+bestaudio/best[height<=480]",
+        # Chained fallbacks: the ios/android clients (used below to dodge bot-detection)
+        # expose a narrower format list than the default client, so a strict "must be
+        # <=480p and have separate video+audio" selector can come up empty for some
+        # videos. Fall back to any muxed <=480p stream, then to whatever's best overall,
+        # rather than failing outright.
+        "format": "bestvideo[height<=480]+bestaudio/best[height<=480]/best",
         "outtmpl": outtmpl,
         "quiet": True,
         "no_warnings": True,
